@@ -20,3 +20,4 @@ dependencies:
     - casadi==3.5.5
     - picos==2.2.0
     - pyhull==2015.2.1
+    - nbdime==2.1.0
