@@ -22,4 +22,3 @@ dependencies:
     - picos==2.2.0
     - pyhull==2015.2.1
     - nbdime==2.1.0
-    - plotly==4.14.3
