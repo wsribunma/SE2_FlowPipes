@@ -16,8 +16,10 @@ dependencies:
   - ffmpeg=4.3.1
   - openh264=2.1.1
   - pandas=1.2.2
+  - plotly=4.14.3
   - pip:
     - casadi==3.5.5
     - picos==2.2.0
     - pyhull==2015.2.1
     - nbdime==2.1.0
+    - plotly==4.14.3
