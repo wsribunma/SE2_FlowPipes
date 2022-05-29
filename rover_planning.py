@@ -310,27 +310,22 @@ def simulate_rover(planner: RoverPlanner, freq_d, w1, w2, x0, y0, theta0, dist, 
 
     def kinematics(t, x_vect, ref_data, freq_d, w1, w2, dist, sol, use_approx):
         #print(x_vect.shape)
-        _, _, theta, _, _, _ = x_vect
-        vx, vy, omega, e_dot = compute_control(t, x_vect, ref_data, freq_d, w1, w2, dist, sol, use_approx)
+        _, _, theta = x_vect
+        vx, vy, omega = compute_control(t, x_vect, ref_data, freq_d, w1, w2, dist, sol, use_approx)
         #x2 = vx*np.cos(theta)  
         return [
             vx*np.cos(theta) - vy*np.sin(theta),
             vx*np.sin(theta) + vy*np.sin(theta),
-            omega,
-            e_dot.x,
-            e_dot.y,
-            e_dot.theta
+            omega
         ]
 
     t = np.arange(0.1, np.sum(planner.leg_times), 0.1)
     ref_data = planner.compute_ref_data()
     X0 = SE2(x=x0, y=y0, theta=theta0)  # initial state
-    X0_r = SE2(x=0, y=0, theta=0)  # initial reference state
-    x0 = (X0.inv@X0_r).log  # initial log of error
     import scipy.integrate
     res = scipy.integrate.solve_ivp(
         fun=lambda t, x_vect: kinematics(t, x_vect, ref_data, freq_d, w1, w2, dist, sol, use_approx),
-            t_span=[t[0], t[-1]], y0=[X0.x, X0.y, X0.theta, x0.x, x0.y, x0.theta],
+            t_span=[t[0], t[-1]], y0=[X0.x, X0.y, X0.theta],
         t_eval=t)
     return res
 

@@ -329,7 +329,7 @@ def control_law(B, K, e:se2):
     return BK
 
 def maxw(sol, x):
-    U1 = np.eye(2) # multiply singular val of U
+    U1 = np.eye(2)*np.pi/2 # multiply singular val of U
     U2 = np.array([
         [0],
         [0]])
@@ -363,7 +363,7 @@ def compute_control(t, x_vect, ref_data, freq_d, w1, w2, dist, sol, use_approx):
     # Lie group
     X_r = SE2(r_x, r_y, r_theta) # reference
     X = SE2(x=x_vect[0], y=x_vect[1], theta=x_vect[2])
-    e = se2(x=x_vect[3], y=x_vect[4], theta=x_vect[5]) # log error
+    # e = se2(x=x_vect[3], y=x_vect[4], theta=x_vect[5]) # log error
     eta = X.inv@X_r # error in SE2
     chi = eta.log # error in se2
 
@@ -381,9 +381,9 @@ def compute_control(t, x_vect, ref_data, freq_d, w1, w2, dist, sol, use_approx):
     elif dist == 'maxdV':
         er = chi.vee
         w1, w2 = maxw(sol, er)
-        print('w1', w1, 'w2', w2)
+        #print('w1', w1, 'w2', w2)
         w = se2(w1[0], w1[1], w2[0]).vee
-        print('w', w)
+        #print('w', w)
 
     B, K = solve_control_gain(1, 0)
 
@@ -395,12 +395,12 @@ def compute_control(t, x_vect, ref_data, freq_d, w1, w2, dist, sol, use_approx):
     omega = v[2]
 
     # log error dynamics
-    U = se2_diff_correction(e)
-    if use_approx:
-        # these dynamics don't hold exactly unless you can move sideways
-        e_dot = se2.from_vector((-v_r.ad_matrix + B@K)@e.vee + U@w.vee)
-    else:
-        # these dynamics, always hold
-        e_dot = -v_r@e + se2.from_vector(U@(us.vee + w))
+    # U = se2_diff_correction(e)
+    # if use_approx:
+    #     # these dynamics don't hold exactly unless you can move sideways
+    #     e_dot = se2.from_vector((-v_r.ad_matrix + B@K)@e.vee + U@w.vee)
+    # else:
+    #     # these dynamics, always hold
+    #     e_dot = -v_r@e + se2.from_vector(U@(us.vee + w))
 
-    return vx, vy, omega, e_dot
+    return vx, vy, omega
