@@ -283,8 +283,8 @@ class SE2(LieGroup):
         p = V_inv@np.array([x, y])
         return se2(x=p[0], y=p[1], theta=theta)     
 
-def solve_control_gain(v, omega):
-    A = -se2(v, 0, omega).ad_matrix
+def solve_control_gain():
+    A = -se2(1, 0, 0).ad_matrix
     B = np.array([[1, 0], [0, 0], [0, 1]])
     Q = 10*np.eye(3)  # penalize state
     R = 1*np.eye(2)  # penalize input
@@ -385,7 +385,7 @@ def compute_control(t, x_vect, ref_data, freq_d, w1, w2, dist, sol, use_approx):
         w = se2(w1[0], w1[1], w2[0]).vee
         #print('w', w)
 
-    B, K = solve_control_gain(1, 0)
+    B, K = solve_control_gain()
 
     u = control_law(B, K, chi)
     us = se2.from_vector(u)
