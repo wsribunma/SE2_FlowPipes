@@ -155,7 +155,7 @@ def compute_control(t, y_vect, ref_data, freq_d, w1_mag, w2_mag, dist, sol, use_
         w = se2(x=np.cos(2*np.pi*freq_d*t+phi)*w1_mag, y=np.sin(2*np.pi*freq_d*t+phi)*w1_mag, theta=np.cos(2*np.pi*freq_d*t+phi2)*w2_mag)
     # square wave
     elif dist == 'square':
-        w = se2(x=signal.square(2*np.pi*freq_d*t+np.pi/2)*w1_mag, y=signal.square(2*np.pi*freq_d*t)*w1_mag, theta=signal.square(2*np.pi*freq_d*t)*w2_mag)
+        w = se2(x=signal.square(2*np.pi*freq_d*t+np.pi)*w1_mag/np.sqrt(2), y=signal.square(2*np.pi*freq_d*t)*w1_mag/np.sqrt(2), theta=signal.square(2*np.pi*freq_d*t)*w2_mag)
     # maximize dV
     elif dist == 'maxdV':
         er = e.vee
