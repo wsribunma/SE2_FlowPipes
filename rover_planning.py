@@ -3,9 +3,8 @@ import numpy as np
 import logging
 import sys
 import matplotlib.pyplot as plt
-from rover_control import compute_control
-from rover_control import se2, SE2
-
+from rover_control import *
+from SE2Lie import *
 """
 This module rover minimum jerk trajectory planning.
 """
@@ -186,7 +185,8 @@ class RoverPlanner:
         v_prev = np.linalg.norm(vel_prev)
         
         # old heading
-        dir_0 = vel_prev/np.linalg.norm(vel_prev)
+        speed0 = max([1e-3, np.linalg.norm(vel_prev)])
+        dir_0 = vel_prev/speed0
         theta0 = np.arctan2(vel_prev[1], vel_prev[0])
 
         # new heading
@@ -242,7 +242,6 @@ class RoverPlanner:
                                 velocities=self.velocities[:, 1],
                                 leg_times=self.leg_times,
                                 continuity_derivs=[])
-        t = np.linspace(0, np.sum(self.leg_times), 1000)
 
         def f_ref_x(t):
             return ref_x(t)
@@ -261,6 +260,7 @@ class RoverPlanner:
             return np.arctan2(ref_y(t, 1), ref_x(t, 1))
 
         if plot:
+            t = np.arange(1e-5, np.sum(self.leg_times), 0.1)
             plt.figure()
             self.px = ref_x(t)
             self.py = ref_y(t)
@@ -306,40 +306,80 @@ class RoverPlanner:
             'way_points': np.array([self.px, self.py])
         }
 
-def simulate_rover(planner: RoverPlanner, freq_d, w1, w2, x0, y0, theta0, dist, sol, use_approx, plot=False):
-
-    def kinematics(t, x_vect, ref_data, freq_d, w1, w2, dist, sol, use_approx):
-        #print(x_vect.shape)
-        _, _, theta = x_vect
-        vx, vy, omega = compute_control(t, x_vect, ref_data, freq_d, w1, w2, dist, sol, use_approx)
-        #x2 = vx*np.cos(theta)  
-        return [
-            vx*np.cos(theta) - vy*np.sin(theta),
-            vx*np.sin(theta) + vy*np.sin(theta),
-            omega
-        ]
-
-    t = np.arange(0.1, np.sum(planner.leg_times), 0.1)
+def simulate_rover(planner: RoverPlanner, freq_d, w1, w2, x0, y0, theta0, dist, sol, use_approx, dt, plot=False):
+    t = np.arange(1e-5, np.sum(planner.leg_times), dt)
     ref_data = planner.compute_ref_data()
-    X0 = SE2(x=x0, y=y0, theta=theta0)  # initial state
+    X0 = SE2(x=x0, y=y0, theta=theta0)  # initial state in SE2
+    X0_r = SE2(x=0, y=0, theta=0)  # initial reference state
+    x0 = (X0.inv@X0_r).log  # initial log of error
     import scipy.integrate
+#     res = scipy.integrate.solve_ivp(
+#         fun=lambda t, x_vect: kinematics(t, x_vect, ref_data, freq_d, w1, w2, dist, sol, use_approx),
+#             t_span=[t[0], t[-1]], y0=[X0.x, X0.y, X0.theta], t_eval=t)
     res = scipy.integrate.solve_ivp(
-        fun=lambda t, x_vect: kinematics(t, x_vect, ref_data, freq_d, w1, w2, dist, sol, use_approx),
-            t_span=[t[0], t[-1]], y0=[X0.x, X0.y, X0.theta],
-        t_eval=t)
+        fun=compute_control,
+        t_span=[t[0], t[-1]], t_eval=t,
+        y0=[X0.x, X0.y, X0.theta,
+            X0_r.x, X0_r.y, X0_r.theta,
+            x0.x, x0.y, x0.theta], args=[ref_data, freq_d, w1, w2, dist, sol, use_approx])
     return res
 
+def compute_exp_log_err(e_x, e_y, e_theta, x_r, y_r, theta_r):
+    return (SE2(x=x_r, y=y_r, theta=theta_r)@((se2(x=e_x, y=e_y, theta=e_theta).exp).inv)).params
+
+
+def compute_err(x, y, theta, x_r, y_r, theta_r):
+    return (SE2(x=x, y=y, theta=theta).inv@SE2(x=x_r, y=y_r, theta=theta_r)).params
+
+def control_law1(B, K, e):
+    L = np.diag([1, 1, 1])
+    print(L@se2_diff_correction_inv(e))
+    print(B)
+    u = L@se2_diff_correction_inv(e)@B@K@e.vee # controller input
+    return u
 
 def plot_rover_sim(res, planner):
     ref_data = planner.compute_ref_data()
-    t = np.arange(0.1, np.sum(planner.leg_times), 0.1)
+    t = res['t']
 
+    # reference data
     ref_x = ref_data['x']
     ref_y = ref_data['y']
     ref_theta = ref_data['theta']
+    ref_omega = ref_data['omega']
+    ref_V = ref_data['V']
 
+    # reference at time t
+    r_omega = ref_omega(t).reshape(len(t),1)
+    r_V = ref_V(t).reshape(len(t),1)
+    
+    y_vect = res['y']
+    x, y, theta, x_r, y_r, theta_r, log_e_x, log_e_y, log_e_theta = [y_vect[i, :] for i in range(len(y_vect))]
+    exp_log_err = np.array([compute_exp_log_err(y[6], y[7], y[8], y[3], y[4], y[5]) for y in y_vect.T]).T
+    err = np.array([ compute_err(y[0], y[1], y[2], y[3], y[4], y[5]) for y in y_vect.T]).T
+    
+    ux = np.zeros((log_e_x.shape[0],1))
+    uy = np.zeros((log_e_x.shape[0],1))
+    utheta = np.zeros((log_e_x.shape[0],1))
+    uw = np.zeros((log_e_x.shape[0],1))
+    B, K = solve_control_gain()
+    for i in range(log_e_x.shape[0]):
+        #print(se2.from_vector(np.array([log_e_x[i], log_e_y[i], log_e_theta[i]])))
+        e = se2(err[0,i], err[1,i], err[2,i])
+        #print(control_law(B, K, e))
+        uc = np.array([control_law(B, K, e)])
+        ux[i,:] = uc[:,0]
+        uy[i,:] = uc[:,1]
+#         if np.abs(r_omega[i,:]) > np.pi/4:
+#             if r_omega[i,:] < 0:
+#                 r_omega[i,:] = -np.pi/4
+#             else:
+#                 r_omega[i,:] = np.pi/4
+        utheta[i,:] = uc[:,2]
+        uw[i,:] = np.sqrt(ux[i,:]**2+uy[i,:]**2)
+    
     plt.figure()
-    plt.plot(res.y[0, :], res.y[1, :], '-')
+    plt.plot(exp_log_err[0, :], exp_log_err[1, :], '-')
     plt.plot(ref_x(t), ref_y(t))
     plt.xlabel('x, m')
     plt.ylabel('y, m')
@@ -348,8 +388,8 @@ def plot_rover_sim(res, planner):
     plt.title('trajectory')
 
     plt.figure()
-    plt.plot(t, res.y[0, :] - ref_x(t), label='x')
-    plt.plot(t, res.y[1, :] - ref_y(t), label='y')
+    plt.plot(t, exp_log_err[0, :] - ref_x(t), label='x')
+    plt.plot(t, exp_log_err[1, :] - ref_y(t), label='y')
     plt.legend()
     plt.title('position error')
     plt.grid()
@@ -357,26 +397,36 @@ def plot_rover_sim(res, planner):
     plt.ylabel('m')
 
     plt.figure()
-    plt.plot(t, np.rad2deg(wrap(ref_theta(t) - res.y[2, :])))
+    plt.plot(t, np.rad2deg(wrap(ref_theta(t) - exp_log_err[2, :])))
     plt.grid()
     plt.title('heading error')
     plt.xlabel('t, sec')
     plt.ylabel('deg')
+    
+    plt.figure()
+    plt.plot(t, np.sqrt((r_V+ux)**2+uy**2), label='$v$ (m/s)')
+    plt.plot(t, np.abs(r_omega+utheta), label='$\omega$ (rad/s)')
+    plt.legend(loc=1)
+    plt.grid()
+    plt.xlim(0,40)
+    plt.ylim(0,3)
+    plt.title('Vehicle Inputs')
+    plt.xlabel('t, sec')
+    plt.ylabel('Value')
 
 def plot_rover_simulated(res, name=None, legend=False, save=False, **plt_kwargs):
     if save:
         os.makedirs('figures', exist_ok=True)
         
     y_vect = res['y']
-    x, y, theta, _, _, _ = [y_vect[i, :] for i in range(len(y_vect))]
-    
+    x, y, theta, x_r, y_r, theta_r, log_e_x, log_e_y, log_e_theta = [y_vect[i, :] for i in range(len(y_vect))]    
     #ref = np.array([x,y])
 
     #plt.rcParams['figure.figsize'] = (15, 10)
     
     # plot simulated trajectory
-    plt.figure(1, figsize=(8,8))
-    label = 'Simulated Trajectory in ' + name
+    plt.figure(1, figsize=(15,10))
+    label = 'Simulated Trajectory' + name
     plt.grid(True)
     plt.plot(x, y, label=label  if legend else None, **plt_kwargs)
     plt.xlabel('x, m')
