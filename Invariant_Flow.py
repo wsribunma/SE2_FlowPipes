@@ -1,7 +1,6 @@
 import pyhull
 import math
 import numpy as np
-from pylab import*
 from pytope import Polytope
 import picos
 import scipy.optimize
@@ -12,7 +11,7 @@ from IntervalHull import qhull2D, minBoundingRect
 from SE2Lie import *
 
 def svd(theta):
-    return (sqrt(-2/(cos(theta)-1))*abs(theta))/2
+    return (np.sqrt(-2/(np.cos(theta)-1))*abs(theta))/2
 
 def solve_lmi(alpha, A1, A2, U1, U2, verbosity=0):
     
@@ -75,7 +74,7 @@ def find_se2_invariant_set(verbosity=0):
         [0, 0, 0]])    
     A0 = solve_control_gain()[2]
     A1 = A0 + (0)*dA
-    A2 = A0 + (75*pi/180)*dA
+    A2 = A0 + (75*np.pi/180)*dA
 
     # these are the two parts of U(x), split ast U(x) = [U1, U2], where the first impacts the u, v and the last impacts the w disturbance
     # these are the zero order terms of the taylor expansion below
@@ -112,7 +111,7 @@ def se2_lie_algebra_invariant_set_points(sol, t, w1_norm, w2_norm, e0): # w1_nor
     beta = (e0.T@P@e0) # V0
 #     print(e0)
 #     print('V0', beta)
-    val = np.real(beta*exp(-sol['alpha']*t) + (sol['mu1']*w1_norm**2 + sol['mu2']*w2_norm**2)*(1-exp(-sol['alpha']*t))) # V(t)
+    val = np.real(beta*np.exp(-sol['alpha']*t) + (sol['mu1']*w1_norm**2 + sol['mu2']*w2_norm**2)*(1-np.exp(-sol['alpha']*t))) # V(t)
 #     print('val', val)
     
     # 1 = xT(P/V(t))x, equation for the ellipse
@@ -134,13 +133,13 @@ def se2_lie_algebra_invariant_set_points(sol, t, w1_norm, w2_norm, e0): # w1_nor
     return R@points
 
 def rotate_point(point, angle):
-    new_point = array([point[0] * cos(angle) - point[1] * sin(angle),
-                       point[0] * sin(angle) + point[1] * cos(angle)])
+    new_point = np.array([point[0] * np.cos(angle) - point[1] * np.sin(angle),
+                       point[0] * np.sin(angle) + point[1] * np.cos(angle)])
     return new_point
 
 def flowpipes2(x_r, y_r, n, e0, w1, w2, sol):
     
-    nom = array([x_r,y_r]).T
+    nom = np.array([x_r,y_r]).T
     flowpipes = []
     intervalhull = []
     cp = []
@@ -173,12 +172,12 @@ def flowpipes2(x_r, y_r, n, e0, w1, w2, sol):
         l = np.sqrt(x**2+y**2)
         angle = np.arccos(x/l)
         if np.around(y, decimals = 1) < 0:
-            angle = 2*pi - angle
+            angle = 2*np.pi - angle
 
         t = 0.05*i*steps
         # invariant set in se2
         if max_ang == 0:
-            max_ang = pi/20
+            max_ang = np.pi/20
         points = se2_lie_algebra_invariant_set_points(sol, t, w1*svd(max_ang), w2, e0)
         
         # exp map (invariant set in Lie group)
