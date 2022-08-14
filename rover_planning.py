@@ -306,7 +306,7 @@ class RoverPlanner:
             'way_points': np.array([self.px, self.py])
         }
 
-def simulate_rover(planner: RoverPlanner, freq_d, w1, w2, x0, y0, theta0, dist, sol, use_approx, dt, plot=False):
+def simulate_rover(planner: RoverPlanner, freq_d, w1, w2, x0, y0, theta0, dist, use_approx, dt, plot=False):
     t = np.arange(1e-5, np.sum(planner.leg_times), dt)
     ref_data = planner.compute_ref_data()
     X0 = SE2(x=x0, y=y0, theta=theta0)  # initial state in SE2
@@ -321,7 +321,7 @@ def simulate_rover(planner: RoverPlanner, freq_d, w1, w2, x0, y0, theta0, dist, 
         t_span=[t[0], t[-1]], t_eval=t,
         y0=[X0.x, X0.y, X0.theta,
             X0_r.x, X0_r.y, X0_r.theta,
-            x0.x, x0.y, x0.theta], args=[ref_data, freq_d, w1, w2, dist, sol, use_approx])
+            x0.x, x0.y, x0.theta], args=[ref_data, freq_d, w1, w2, dist, use_approx])
     return res
 
 def compute_exp_log_err(e_x, e_y, e_theta, x_r, y_r, theta_r):

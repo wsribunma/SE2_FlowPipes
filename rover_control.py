@@ -120,7 +120,7 @@ def maxw(sol, x):
 #         e_dot.y,
 #         e_dot.theta
 #     ]
-def compute_control(t, y_vect, ref_data, freq_d, w1_mag, w2_mag, dist, sol, use_approx):
+def compute_control(t, y_vect, ref_data, freq_d, w1_mag, w2_mag, dist, use_approx):
     # reference data
     ref_x = ref_data['x']
     ref_y = ref_data['y']

@@ -264,7 +264,7 @@ class SE2(LieGroup):
     def log(self):
         x, y, theta = self.x, self.y, self.theta
         with np.errstate(divide='ignore',invalid='ignore'):
-            a = np.where(np.abs(theta) < 1e-3, 1 - theta**2/6 + theta**4/12, np.sin(theta)/theta)
+            a = np.where(np.abs(theta) < 1e-3, 1 - theta**2/6 + theta**4/120, np.sin(theta)/theta)
             b = np.where(np.abs(theta) < 1e-3, theta/2 - theta**3/24 + theta**5/720, (1 - np.cos(theta))/theta)
         V_inv = np.array([
             [a, b],
