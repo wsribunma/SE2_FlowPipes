@@ -23,6 +23,7 @@ def solve_control_gain():
 def control_law(B, K, e):
     L = np.diag([1, 1, 1])
     u = L@se2_diff_correction_inv(e)@B@K@e.vee # controller input
+    # print(u)
     return u
 
 def maxw(sol, x):
@@ -136,7 +137,7 @@ def compute_control(t, y_vect, ref_data, freq_d, w1_mag, w2_mag, dist, use_appro
     r_V = float(ref_V(t))
     
     X = SE2(x=y_vect[0], y=y_vect[1], theta=y_vect[2])
-    X_r = SE2(x=y_vect[3], y=y_vect[4], theta=y_vect[5])
+    X_r = SE2(x=r_x, y=r_y, theta=r_theta)
     
     e = se2(x=y_vect[6], y=y_vect[7], theta=y_vect[8]) # log error
     
@@ -161,6 +162,8 @@ def compute_control(t, y_vect, ref_data, freq_d, w1_mag, w2_mag, dist, use_appro
         er = e.vee
         w1, w2 = maxw(sol, er)
         w = se2(w1[0], w1[1], w2[0])
+    else:
+        w = se2(x=0, y=0, theta=0)
         
     # control law applied to non-linear error
     u_nl = se2.from_vector(control_law(B, K, e_nl))

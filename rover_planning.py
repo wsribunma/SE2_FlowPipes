@@ -138,9 +138,10 @@ class RoverPlanner:
         velocities = []
         leg_times = []
         
-        # stopped
+        # started
         pos_stopped = np.array([[x, y]])
-        vel_stopped = np.array([[0, 0]])
+        v_start = v
+        vel_stopped = np.array([[v_start*np.cos(theta), v_start*np.sin(theta)]])
         waypoints.append(pos_stopped)
         velocities.append(vel_stopped)
         
@@ -148,10 +149,10 @@ class RoverPlanner:
         vel = np.array([[v*np.cos(theta), v*np.sin(theta)]])
         dir_0 = vel/np.linalg.norm(vel)
         pos_accel = pos_stopped + r*dir_0
-        d_accel = r # what is r
+        d_accel = r 
         v_accel = v
         vel_accel = v_accel*dir_0
-        T_accel = d_accel/((v_accel + 0)/2)
+        T_accel = d_accel/((v_accel + v_start)/2)
         waypoints.append(pos_accel)
         velocities.append(vel_accel)
         leg_times.append(T_accel)
@@ -205,7 +206,7 @@ class RoverPlanner:
             v_turn = v
             vel_turn = v_turn*dir_1
             d_turn = r*dtheta
-            T_turn = d_turn/v_turn*1.5
+            T_turn = d_turn/v_turn*1.1
         
             waypoints.append(pos_turn)
             velocities.append(vel_turn)
@@ -260,7 +261,7 @@ class RoverPlanner:
             return np.arctan2(ref_y(t, 1), ref_x(t, 1))
 
         if plot:
-            t = np.arange(1e-5, np.sum(self.leg_times), 0.1)
+            t = np.arange(0, np.sum(self.leg_times), 0.05)
             plt.figure()
             self.px = ref_x(t)
             self.py = ref_y(t)
@@ -275,7 +276,7 @@ class RoverPlanner:
             plt.title('V')
             plt.plot(t, f_ref_V(t))
             plt.grid()
-            plt.vlines(np.cumsum(self.leg_times), 0, 2, color='r', alpha=0.5)
+            plt.vlines(np.cumsum(self.leg_times), 0, 20, color='r', alpha=0.5)
             plt.xlabel('t, sec')
             plt.ylabel('m/s')
 
@@ -307,7 +308,7 @@ class RoverPlanner:
         }
 
 def simulate_rover(planner: RoverPlanner, freq_d, w1, w2, x0, y0, theta0, dist, use_approx, dt, plot=False):
-    t = np.arange(1e-5, np.sum(planner.leg_times), dt)
+    t = np.arange(0, np.sum(planner.leg_times), dt)
     ref_data = planner.compute_ref_data()
     X0 = SE2(x=x0, y=y0, theta=theta0)  # initial state in SE2
     X0_r = SE2(x=0, y=0, theta=0)  # initial reference state
@@ -321,7 +322,7 @@ def simulate_rover(planner: RoverPlanner, freq_d, w1, w2, x0, y0, theta0, dist, 
         t_span=[t[0], t[-1]], t_eval=t,
         y0=[X0.x, X0.y, X0.theta,
             X0_r.x, X0_r.y, X0_r.theta,
-            x0.x, x0.y, x0.theta], args=[ref_data, freq_d, w1, w2, dist, use_approx])
+            x0.x, x0.y, x0.theta], args=[ref_data, freq_d, w1, w2, dist, use_approx], rtol=1e-8, atol=1e-11)
     return res
 
 def compute_exp_log_err(e_x, e_y, e_theta, x_r, y_r, theta_r):
@@ -350,13 +351,21 @@ def plot_rover_sim(res, planner):
     ref_V = ref_data['V']
 
     # reference at time t
+    r_x = ref_x(t)
+    r_y = ref_y(t)
+    r_theta = ref_theta(t)
     r_omega = ref_omega(t).reshape(len(t),1)
     r_V = ref_V(t).reshape(len(t),1)
     
     y_vect = res['y']
     x, y, theta, x_r, y_r, theta_r, log_e_x, log_e_y, log_e_theta = [y_vect[i, :] for i in range(len(y_vect))]
-    exp_log_err = np.array([compute_exp_log_err(y[6], y[7], y[8], y[3], y[4], y[5]) for y in y_vect.T]).T
-    err = np.array([ compute_err(y[0], y[1], y[2], y[3], y[4], y[5]) for y in y_vect.T]).T
+    
+    exp_log_err = np.zeros((3,len(t)))
+    for j in range(len(t)):
+        exp_log_err[:,j] = np.array([compute_exp_log_err(log_e_x[j], log_e_y[j], log_e_theta[j], r_x[j], r_y[j], r_theta[j])])
+    
+    # exp_log_err = np.array([compute_exp_log_err(y[6], y[7], y[8], y[3], y[4], y[5]) for y in y_vect.T]).T
+    err = np.array([compute_err(y[0], y[1], y[2], y[3], y[4], y[5]) for y in y_vect.T]).T
     
     ux = np.zeros((log_e_x.shape[0],1))
     uy = np.zeros((log_e_x.shape[0],1))
@@ -380,6 +389,8 @@ def plot_rover_sim(res, planner):
     
     plt.figure()
     plt.plot(exp_log_err[0, :], exp_log_err[1, :], '-')
+    # plt.plot(x, y)
+    plt.plot(x_r, y_r)
     plt.plot(ref_x(t), ref_y(t))
     plt.xlabel('x, m')
     plt.ylabel('y, m')
@@ -388,8 +399,8 @@ def plot_rover_sim(res, planner):
     plt.title('trajectory')
 
     plt.figure()
-    plt.plot(t, exp_log_err[0, :] - ref_x(t), label='x')
-    plt.plot(t, exp_log_err[1, :] - ref_y(t), label='y')
+    plt.plot(t, exp_log_err[0,:] - x, label='x')
+    plt.plot(t, exp_log_err[1,:] - y, label='y')
     plt.legend()
     plt.title('position error')
     plt.grid()
@@ -404,31 +415,41 @@ def plot_rover_sim(res, planner):
     plt.ylabel('deg')
     
     plt.figure()
-    plt.plot(t, np.sqrt((r_V+ux)**2+uy**2), label='$v$ (m/s)')
-    plt.plot(t, np.abs(r_omega+utheta), label='$\omega$ (rad/s)')
+    plt.plot(t, (ux), label='$v$ (m/s)')
+    plt.plot(t, (uy), label='$vy$ (m/s)')
+    plt.plot(t, (utheta), label='$\omega$ (rad/s)')
     plt.legend(loc=1)
     plt.grid()
-    plt.xlim(0,40)
-    plt.ylim(0,3)
     plt.title('Vehicle Inputs')
     plt.xlabel('t, sec')
     plt.ylabel('Value')
 
-def plot_rover_simulated(res, name=None, legend=False, save=False, **plt_kwargs):
+def plot_rover_simulated(res, planner, name=None, legend=False, save=False, **plt_kwargs):
     if save:
         os.makedirs('figures', exist_ok=True)
-        
+    
+    ref_data = planner.compute_ref_data()
+    t = res['t']
+    
+    ref_x = ref_data['x']
+    ref_y = ref_data['y']
+    ref_theta = ref_data['theta']
+    
+    r_x = ref_x(t)
+    r_y = ref_y(t)
+    r_theta = ref_theta(t)
+    
     y_vect = res['y']
     x, y, theta, x_r, y_r, theta_r, log_e_x, log_e_y, log_e_theta = [y_vect[i, :] for i in range(len(y_vect))]    
-    #ref = np.array([x,y])
-
-    #plt.rcParams['figure.figsize'] = (15, 10)
+    exp_log_err = np.zeros((3,len(t)))
+    for j in range(len(t)):
+        exp_log_err[:,j] = np.array([compute_exp_log_err(log_e_x[j], log_e_y[j], log_e_theta[j], r_x[j], r_y[j], r_theta[j])])
     
     # plot simulated trajectory
     plt.figure(1, figsize=(15,10))
     label = 'Simulated Trajectory' + name
     plt.grid(True)
-    plt.plot(x, y, label=label  if legend else None, **plt_kwargs)
+    plt.plot(exp_log_err[0, :], exp_log_err[1, :], label=label  if legend else None, **plt_kwargs)
     plt.xlabel('x, m')
     plt.ylabel('y, m')
     
@@ -437,3 +458,69 @@ def plot_rover_simulated(res, name=None, legend=False, save=False, **plt_kwargs)
     plt.axis('equal')
     if save:
         plt.savefig('figures/')
+        
+def plot_sim_corres(res, planner, name=None, legend=False, save=False):
+    if save:
+        os.makedirs('figures', exist_ok=True)
+    ref_data = planner.compute_ref_data()
+    t = res['t']
+
+    # reference data
+    ref_x = ref_data['x']
+    ref_y = ref_data['y']
+    ref_theta = ref_data['theta']
+    ref_omega = ref_data['omega']
+    ref_V = ref_data['V']
+
+    # reference at time t
+    r_x = ref_x(t)
+    r_y = ref_y(t)
+    r_theta = ref_theta(t)
+    r_omega = ref_omega(t).reshape(len(t),1)
+    r_V = ref_V(t).reshape(len(t),1)
+    
+    y_vect = res['y']
+    x, y, theta, x_r, y_r, theta_r, log_e_x, log_e_y, log_e_theta = [y_vect[i, :] for i in range(len(y_vect))]
+    
+    exp_log_err = np.zeros((3,len(t)))
+    for j in range(len(t)):
+        exp_log_err[:,j] = np.array([compute_exp_log_err(log_e_x[j], log_e_y[j], log_e_theta[j], r_x[j], r_y[j], r_theta[j])])
+    
+    # exp_log_err = np.array([compute_exp_log_err(y[6], y[7], y[8], y[3], y[4], y[5]) for y in y_vect.T]).T
+    err = np.array([compute_err(y[0], y[1], y[2], y[3], y[4], y[5]) for y in y_vect.T]).T
+    
+    plt.rcParams['figure.figsize'] = (10, 8)
+    plt.figure(1)
+    title = 'X-Y Trajectory'
+    # plt.plot(exp_log_err[0, :], exp_log_err[1, :], '-')    
+    plt.plot(x, y, 'b-.', label='Lie Group' if legend else None, linewidth=1, alpha=0.5)
+    plt.plot(exp_log_err[0, :], exp_log_err[1, :], 'r-', label='Lie Algebra' if legend else None, linewidth=0.5, alpha = 0.7)
+    plt.plot(ref_x(t), ref_y(t), 'y-', alpha=1, linewidth=3, label='Reference' if legend else None)
+    plt.xlabel('x, m')
+    plt.ylabel('y, m')
+    plt.axis('equal')
+    plt.grid(True)
+    plt.title(title)
+    if legend:
+        plt.legend()
+    if save:
+        plt.savefig('figures/' + title)
+    
+    plt.figure(2)
+    title = name + 'Error between the Lie Group and the Lie Algebra'
+    plt.title(title)
+    plt.grid(True)
+    plt.plot(t, x-exp_log_err[0, :], 'y--', label='x(m)' if legend else None, linewidth=1, alpha = 1)
+    plt.plot(t, y-exp_log_err[1, :], 'b-.', label='y(m)' if legend else None, linewidth=1, alpha = 1)
+    theta_err = theta-exp_log_err[2, :]
+    for i in range(len(theta_err)):
+        if theta_err[i] > 1:
+            theta_err[i] = theta_err[i] - 2*np.pi
+    plt.plot(t, theta_err, 'r-', label='$\\theta$(rad)' if legend else None, linewidth=1)
+    plt.xlabel('t, sec')
+    plt.ylabel('error')
+    plt.xlim(0,t[-1])
+    if legend:
+        plt.legend()
+    if save:
+        plt.savefig('figures/' + title)
