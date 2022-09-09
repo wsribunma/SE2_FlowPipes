@@ -209,28 +209,8 @@ def iteration(w1, w2, beta, t, sol): # singlar value do the iteration
         else:
             x = x_bound
             y = y_bound
-            # the bound shouldn't over twice of the disturbance magnitude
-            # if it over twice of the disturbance magnitude -> the guessing max singular value is too large
-        #     if x_bound <=2*w1 and y_bound <=2*w1: 
-        #         break
-        #     # if over twice of the disturbance magnitude, decrease x/y for 0.1 until it reach 0.1
-        #     elif x_bound > 2*w1 and x > 0.1:
-        #         x = x-0.1
-        #         if x < 0.1:
-        #             x = 0.1
-        #     elif y_bound > 2*w1 and y > 0.1:
-        #         y = y-0.1
-        #         if y < 0.1:
-        #             y = 0.1
-        # elif x == 0.1 or y == 0.1:
-        #     break
-        # else: # if the x/y is outside the x_bound/y_bound, replace the x/y with x_bound/y_bound
-        #     if x > x_bound:
-        #         x = x_bound
-        #     if y > y_bound:
-        #         y = y_bound
-    i = np.array([x,y,theta])
-    return i
+
+    return sv1(theta)*w1 + sv2(x, y, theta)*w2
 
 def rotate_point(point, angle):
     new_point = np.array([point[0] * np.cos(angle) - point[1] * np.sin(angle),
@@ -247,10 +227,7 @@ def flowpipes(planner, n, beta, w1, w2):
     y_r = ref_data['way_points'][1,:]
     
     sol = find_se2_invariant_set(-np.pi, np.pi, 18, 20)
-    zeta = iteration(w1, w2, beta, 0, sol)
-    v1 = sv1(zeta[2])
-    v2 = sv2(zeta[0], zeta[1],zeta[2])
-    w1_new = v1*w1 + v2*w2
+    w1_new = iteration(w1, w2, beta, 0, sol)
 
     # print(x_r.shape)
     nom = np.array([x_r,y_r]).T
@@ -258,7 +235,8 @@ def flowpipes(planner, n, beta, w1, w2):
     flowpipes = []
     intervalhull = []
     t_vect = []
-    bound = []
+    Ry1 = []
+    Ry2 = []
     # lyap = []
     
     steps0 = int(len(x_r)/n)
@@ -350,8 +328,8 @@ def flowpipes(planner, n, beta, w1, w2):
         max_y = set_bound[1,:].max()
         min_y = set_bound[1,:].min()
         y_bound = np.sqrt(min_y**2 + max_y**2)
-        bound.append(np.sqrt(max_x**2 + max_y**2))
-
+        Ry1.append(max_y)
+        Ry2.append(min_y)
             
         P2 = Polytope(inv_set.T) 
         
@@ -365,7 +343,7 @@ def flowpipes(planner, n, beta, w1, w2):
         flowpipes.append(p_vertices)
         intervalhull.append(P1.V)
         a = b
-    return flowpipes, intervalhull, nom, t_vect, bound
+    return flowpipes, intervalhull, nom, t_vect, Ry1, Ry2
 
 def hj_invariant_set_points(r): # w1_norm (x-y direc): wind speed
     

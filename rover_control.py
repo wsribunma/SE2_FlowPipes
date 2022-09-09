@@ -170,7 +170,7 @@ def compute_control(t, y_vect, ref_data, freq_d, w1_mag, w2_mag, dist, use_appro
     v_nl = v_r + u_nl + w
     
     # control law applied to log-linear error
-    u = control_law(B, K, e) # plot u
+    u = control_law(B, K, e)
     us = se2.from_vector(u)
     v = v_r + us + w
         

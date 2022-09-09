@@ -322,7 +322,7 @@ def simulate_rover(planner: RoverPlanner, freq_d, w1, w2, x0, y0, theta0, dist, 
         t_span=[t[0], t[-1]], t_eval=t,
         y0=[X0.x, X0.y, X0.theta,
             X0_r.x, X0_r.y, X0_r.theta,
-            x0.x, x0.y, x0.theta], args=[ref_data, freq_d, w1, w2, dist, use_approx], rtol=1e-8, atol=1e-11)
+            x0.x, x0.y, x0.theta], args=[ref_data, freq_d, w1, w2, dist, use_approx], rtol=1e-6, atol=1e-9)
     return res
 
 def compute_exp_log_err(e_x, e_y, e_theta, x_r, y_r, theta_r):
@@ -454,7 +454,7 @@ def plot_rover_simulated(res, planner, name=None, legend=False, save=False, **pl
     plt.ylabel('y, m')
     
     if legend:
-        plt.legend(loc = 1)
+        plt.legend(loc=1)
     plt.axis('equal')
     if save:
         plt.savefig('figures/')
@@ -489,7 +489,7 @@ def plot_sim_corres(res, planner, name=None, legend=False, save=False):
     # exp_log_err = np.array([compute_exp_log_err(y[6], y[7], y[8], y[3], y[4], y[5]) for y in y_vect.T]).T
     err = np.array([compute_err(y[0], y[1], y[2], y[3], y[4], y[5]) for y in y_vect.T]).T
     
-    plt.rcParams['figure.figsize'] = (10, 8)
+    plt.rcParams['figure.figsize'] = (7, 5)
     plt.figure(1)
     title = 'X-Y Trajectory'
     # plt.plot(exp_log_err[0, :], exp_log_err[1, :], '-')    
@@ -502,10 +502,11 @@ def plot_sim_corres(res, planner, name=None, legend=False, save=False):
     plt.grid(True)
     plt.title(title)
     if legend:
-        plt.legend()
+        plt.legend(loc=1)
     if save:
         plt.savefig('figures/' + title)
     
+    plt.rcParams['figure.figsize'] = (8, 4)
     plt.figure(2)
     title = name + 'Error between the Lie Group and the Lie Algebra'
     plt.title(title)
@@ -521,6 +522,6 @@ def plot_sim_corres(res, planner, name=None, legend=False, save=False):
     plt.ylabel('error')
     plt.xlim(0,t[-1])
     if legend:
-        plt.legend()
+        plt.legend(loc=1)
     if save:
         plt.savefig('figures/' + title)
