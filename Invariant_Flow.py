@@ -17,33 +17,26 @@ def sv2(x, y, theta):
     v = x**2 + y**2
     value = np.sqrt(2*v*(-theta**2*(np.cos(theta)-1)-theta*(2*np.sin(theta)-np.sin(2*theta))-4*np.cos(theta)+np.cos(2*theta)+3)/
                         (theta**2*(np.cos(theta)-1)**2))/2
-    # if value > 0.84:
-    #     value= 0.84
     return value
-
-# LMI solver
-def solve_lmi(alpha, A0, s, omega, verbosity=0):
+    
+def solve_lmi(alpha, A, verbosity=0):
     
     prob = picos.Problem()
-    P = picos.SymmetricVariable('P', (3, 3)) # 6x6
-    P1 = P[:2, :] # P[:3, :]
-    P2 = P[2, :] # P[3:, :]
+    P = picos.SymmetricVariable('P', (3, 3))
+    P1 = P[:2, :]
+    P2 = P[2, :]
     mu1 = picos.RealVariable('mu_1')
     mu2 = picos.RealVariable('mu_2')
     gam = mu1 + mu2
-    for si in s:
-        for omegai in omega:
-            A1 = omegai*np.array([[0, 1, 0],
-                           [-1, 0, 0],
-                           [0, 0, 0]])
-            Ai = A0 + A1 + np.array([[si[0], si[1], si[2]],
-                                [si[3], si[4], si[5]],
-                                [0, 0, 0]])
-            block_eq = picos.block([
+    for Ai in A:
+
+        block_eq1 = picos.block([
             [Ai.T*P + P*Ai + alpha*P, P1.T, P2.T],
             [P1, -alpha*mu1*np.eye(2), 0],
             [P2, 0, -alpha*mu2]])
-        prob.add_constraint(block_eq << 0) # dV < 0
+    
+        prob.add_constraint(block_eq1 << 0) # dV < 0
+    # prob.add_constraint(block_eq2 << 0)
     prob.add_constraint(P >> 1)
     prob.add_constraint(mu1 >> 0)
     prob.add_constraint(mu2 >> 0)
@@ -59,15 +52,17 @@ def solve_lmi(alpha, A0, s, omega, verbosity=0):
         'prob': prob,
         'mu1': mu1.value,
         'mu2': mu2.value,
-        'P': np.array(P.value),
+        'P': np.round(np.array(P.value), 3),
         'alpha':alpha,
         'gam': gam
     }
 
 
-# Feedback Control 
-def solve_control_gain_polytopic(omega1, omega2, v1, v2):
-    A = -se2(v2, 0, 0).ad_matrix
+def solve_control_gain(vr):
+    A = np.array([
+        [0, 0, 0],
+        [0, 0, vr],
+        [0, 0, 0]])
     B = np.array([[1, 0], [0, 0], [0, 1]])
     Q = 10*np.eye(3)  # penalize state
     R = 1*np.eye(2)  # penalize input
@@ -76,26 +71,21 @@ def solve_control_gain_polytopic(omega1, omega2, v1, v2):
     A0 = B@K
     return K, B, A0
 
-# 
+
 def find_se2_invariant_set(omega1, omega2, v1, v2, e, case, verbosity=0):
-    dA1 = np.array([
+    dA = np.array([
         [0, 1, 0],
         [-1, 0, 0],
-        [0, 0, 0]])
-    dA2 = np.array([
-        [0, 0, 0],
-        [0, 0, 1],
-        [0, 0, 0]])
-    A0 = solve_control_gain_polytopic(omega1, omega2, v1, v2)[2] # B@K
-    domega = (omega1 - omega2)/2    
-    dv = (v1 - v2)/2
-    A1 = A0 + omega1*dA1 + v1*dA2
-    A2 = A0 + omega2*dA1 + v2*dA2
-    A3 = A0 + omega1*dA1 + v2*dA2
-    A4 = A0 + omega2*dA1 + v1*dA2
+        [0, 0, 0]])    
+    A0 = solve_control_gain(v2)[2]
 
-    eps = 0.05
-    if case == 'no_side':
+    iterables2 =[[omega1, omega2]]
+    omega = []
+    for m in itertools.product(*iterables2):
+        m = np.array(m)
+        omega.append(m)
+
+    if case=='no_side':
         a1 = []
         a2 = []
         a3 = []
@@ -108,64 +98,47 @@ def find_se2_invariant_set(omega1, omega2, v1, v2, e, case, verbosity=0):
             U_inv = se2_diff_correction_inv(err)
             L = np.diag([1, 0, 1])
             dA = (U@L@U_inv - np.eye(3))@A0
+            # print(dA)
             a1.append(dA[0,0])
             a2.append(dA[0,1])
             a3.append(dA[0,2])
             a4.append(dA[1,0])
             a5.append(dA[1,1])
             a6.append(dA[1,2])
-
-        iterables = [[min(a1)-eps,max(a1)+eps],[min(a2)-eps,max(a2)+eps],[min(a3)-eps,max(a3)+eps],[min(a4)-eps,max(a4)+eps],[min(a5)-eps,max(a5)+eps],[min(a6)+v1,max(a6)+v2]]
-        print(iterables)
-        s = []
-        for t in itertools.product(*iterables):
-            t = np.array(t)
-            s.append(t)
+        iterables = [[np.min(a1), np.max(a1)],[np.min(a2), np.max(a2)],[np.min(a3), np.max(a3)],[np.min(a4), np.max(a4)],[np.min(a5), np.max(a5)],[np.min(a6)+v1, np.max(a6)+v2]]
+        # iterables = [[0],[0],[0],[-0.01, 0.01],[-0.01, 0.01],[v1, v2]]
+    
     else:
-        iterables = [[0],[0],[0],[0],[0],[v1,v2]]
-        s = []
-        for t in itertools.product(*iterables):
-            t = np.array(t)
-            s.append(t)
-
-    iterables2 =[[omega1, omega2]]
-    omega = []
-    for m in itertools.product(*iterables2):
-        m = np.array(m)
-        omega.append(m)
-    
+        iterables = [[0],[0],[0],[0],[0],[v1, v2]]
+    v = []
+    for n in itertools.product(*iterables):
+        n = np.array(n)
+        v.append(n)
+    # print(iterables)
+    A = []
     eig = []
-    for si in s:
-        for omegai in omega:
-            dA1 = omegai*np.array([[0, 1, 0],
-                           [-1, 0, 0],
-                           [0, 0, 0]])
-            Ai = A0 + dA1 + np.array([[si[0], si[1], si[2]],
-                                [si[3], si[4], si[5]],
-                                [0, 0, 0]])
+    for omegai in omega:
+        for vi in v:
+            Ai = A0 + omegai*dA + np.array([[vi[0], vi[1], vi[2]],[vi[3], vi[4], vi[5]],[0, 0,0]])
+            A.append(Ai)
             eig.append(np.linalg.eig(Ai)[0])
-    
-    # these are the two parts of U(x), split ast U(x) = [U1, U2], where the first impacts the u, v and the last impacts the w disturbance
-    # these are the zero order terms of the taylor expansion below
-    # TODO: could add polytopic system with bounded input disturbance, U(x) is actually a function of the state not a constant, so this 
-    # is an under approximation as is
-    U1 = np.eye(2)
-    U2 = np.array([
-        [0],
-        [0]])
     
     # we use fmin to solve a line search problem in alpha for minimum gamma
     if verbosity > 0:
         print('line search')
     
     # we perform a line search over alpha to find the largest convergence rate possible
-    alpha_1 = np.real(np.max(np.array([np.linalg.eig(A1)[0],np.linalg.eig(A2)[0],np.linalg.eig(A3)[0],np.linalg.eig(A4)[0]])))
-    alpha_2 = np.real(np.max(eig))
-    print(alpha_1,alpha_2)
-    # alpha_opt = scipy.optimize.fmin(lambda alpha: solve_lmi(alpha, A1, A2, A3, A4)['cost'], x0=1)
-    alpha_opt = scipy.optimize.fminbound(lambda alpha: solve_lmi(alpha, A0, s, omega, verbosity=verbosity)['cost'], x1=0.001, x2=-alpha_2, disp=True if verbosity > 0 else False)
+    # alpha_1 = np.linalg.norm(np.max(eig))
+    alpha_1 = np.real(np.max(eig))
+    #print(alpha_1)
+    alpha_opt = scipy.optimize.fminbound(lambda alpha: solve_lmi(alpha, A, verbosity=verbosity)['cost'], x1=0.001, x2=-alpha_1, disp=True if verbosity > 0 else False)
+    #print(alpha_opt1)
+    #alpha_opt2 = scipy.optimize.fminbound(lambda alpha: solve_lmi(alpha, A1, A2, U1, U2, verbosity=verbosity)['cost'], x1=0.001, x2=-alpha_2, disp=True if verbosity > 0 else False)
+    #print(alpha_opt2)
+    #alpha_opt = np.min(np.array([alpha_opt1, alpha_opt2]))
     
-    sol = solve_lmi(alpha_opt, A0, s, omega)
+    # if the alpha optimization fail, pick a fixed value for alpha.
+    sol = solve_lmi(alpha_opt, A)
     prob = sol['prob']
     if prob.status == 'optimal':
         P = prob.variables['P'].value
@@ -181,17 +154,18 @@ def find_se2_invariant_set(omega1, omega2, v1, v2, e, case, verbosity=0):
 # Create Ellipsoid Invariant Set
 # invariany set for 6D
 def se2_lie_algebra_invariant_set_points(sol, t, w1_norm, w2_norm, beta): # w1_norm (x-y direc): wind speed
-#     print(e0)
-#     print('V0', beta)
     P = sol['P']
+    # V = xTPx scalar
+    # beta = (e0.T@P@e0) # V0
+    #print('V0', beta)
     val = np.real(beta*np.exp(-sol['alpha']*t) + (sol['mu1']*w1_norm**2 + sol['mu2']*w2_norm**2)*(1-np.exp(-sol['alpha']*t))) # V(t)
+    #print('val', val)
     
     # 1 = xT(P/V(t))x, equation for the ellipse
     evals, evects = np.linalg.eig(P/val)
     radii = 1/np.sqrt(evals)
     R = evects@np.diag(radii)
     R = np.real(R)
-    # print(R)
     
     # draw sphere
     points = []
@@ -205,7 +179,7 @@ def se2_lie_algebra_invariant_set_points(sol, t, w1_norm, w2_norm, beta): # w1_n
     points = np.array(points).T
     return R@points, val
 
-def iteration(w1, w2, beta, t, sol): # singlar value do the iteration
+def iteration(w1, w2, u12, u3, beta, t, sol): # singlar value do the iteration
     x = 2
     y = 2
     theta = np.pi
@@ -215,7 +189,7 @@ def iteration(w1, w2, beta, t, sol): # singlar value do the iteration
         v1 = sv1(theta)
         w1_a = v1*w1
 
-        points, _ = se2_lie_algebra_invariant_set_points(sol, t, w1_a, w2, beta) #Lie Algebra
+        points, _ = se2_lie_algebra_invariant_set_points(sol, t, w1_a+u12, w2+u3, beta) #Lie Algebra
         max_theta = points[2,:].max()
         min_theta = abs(points[2,:].min())
         theta_bound = max(max_theta, min_theta)
@@ -232,9 +206,9 @@ def iteration(w1, w2, beta, t, sol): # singlar value do the iteration
     # use the previous result of theta to do the iteration of x and y      
     for k in np.linspace(0,100,101):
         v3 = sv2(x, y, theta)
-        w1_b = w1_a + v2*w2
+        w1_b = w1_a + v2*w2 
 
-        points, _ = se2_lie_algebra_invariant_set_points(sol, t, w1_b, w2, beta) #Lie Algebra
+        points, _ = se2_lie_algebra_invariant_set_points(sol, t, w1_b+u12, w2+u3, beta) #Lie Algebra
         max_x = points[0,:].max()
         min_x = abs(points[0,:].min())
         x_bound = np.round(max(max_x, min_x),6)
@@ -271,7 +245,7 @@ def flowpipes(planner, n, beta, w1, w2, sol):
     x_r = ref_data['way_points'][0,:]
     y_r = ref_data['way_points'][1,:]
     
-    w1_new = iteration(w1, w2, beta, 0, sol)
+    w1_new = iteration(w1, w2, 0, 0, beta, 0, sol)
 
     # print(x_r.shape)
     nom = np.array([x_r,y_r]).T

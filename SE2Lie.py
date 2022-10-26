@@ -303,7 +303,7 @@ def se2_diff_correction_inv(e: se2): # U_inv
     theta = e.theta
     with np.errstate(divide='ignore',invalid='ignore'):
         a = np.where(abs(theta) > 1e-3, np.sin(theta)/theta, 1 - theta**2/6 + theta**4/120)
-        b = np.where(abs(theta) > 1e-3, (1  - np.cos(theta))/theta, theta/2 - theta**3/24)
+        b = np.where(abs(theta) > 1e-3, -(1  - np.cos(theta))/theta, theta/2 - theta**3/24)
         c = np.where(abs(theta) > 1e-3, -(x*(theta*np.cos(theta) - theta + np.sin(theta) - np.sin(2*theta)/2) + y*(2*np.cos(theta) - np.cos(2*theta)/2 - 3/2))/(theta**2*(1 - np.cos(theta))), y/2 + theta*x/6 - theta**2*y/24 - theta**3*x/120 + theta**4*y/720)
         d = np.where(abs(theta) > 1e-3, -(x*(-2*np.cos(theta) + np.cos(2*theta)/2 + 3/2) + y*(theta*np.cos(theta) - theta + np.sin(theta) - np.sin(2*theta)/2))/(theta**2*(1 - np.cos(theta))), -x/2 + theta*y/6 + theta**2*x/24 - theta**3*y/120 - theta**4*x/720)
     return -np.array([

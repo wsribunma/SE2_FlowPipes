@@ -16,7 +16,8 @@ def solve_control_gain(vr):
     R = 1*np.eye(2)  # penalize input
     K, _, _ = control.lqr(A, B, Q, R)  # rescale K, set negative feedback sign
     K = -K
-    return B, K #, A+B@K, B@K
+    A0 = B@K
+    return B, K, A0 #, A+B@K, B@K
 
 def control_law(B, K, e, case):
     if case =='no_side':
@@ -68,7 +69,7 @@ def compute_control(t, y_vect, ref_data, freq_d, w1_mag, w2_mag, vr, dist, case,
     eta = X.inv@X_r # error in Lie group
     e_nl = eta.log # error in Lie algebra
     
-    B, K = solve_control_gain(vr)
+    B, K, _ = solve_control_gain(vr)
     
     # reference input, coming from planner
     v_r = se2(x=r_V, y=0, theta=r_omega)

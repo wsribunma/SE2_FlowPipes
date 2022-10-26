@@ -264,7 +264,7 @@ class RoverPlanner:
         if plot:
             t = np.arange(0, np.sum(self.leg_times), 0.05)
             plt.rcParams.update({'font.size': 20})
-            plt.figure(figsize=(15,30))
+            plt.figure(figsize=(16,24))
             ax = plt.subplot(311)
             ax2 = plt.subplot(312)
             ax3 = plt.subplot(313)
@@ -285,7 +285,7 @@ class RoverPlanner:
             ax2.set_title('V', fontsize=20)
             ax2.plot(t, f_ref_V(t))
             ax2.grid()
-            ax2.vlines(np.cumsum(self.leg_times), 0, 1.5, color='r', alpha=0.5)
+            ax2.vlines(np.cumsum(self.leg_times), 0.8, 1.2, color='r', alpha=0.5)
             ax2.set_xlabel('t, sec', fontsize=20)
             ax2.set_ylabel('m/s', fontsize=20)
             # plt.savefig('ref_traj2.png', dpi=2500)
@@ -294,11 +294,11 @@ class RoverPlanner:
             ax3.set_title('$\omega$', fontsize=20)
             ax3.plot(t, np.rad2deg(f_ref_omega(t)))
             ax3.grid()
-            ax3.vlines(np.cumsum(self.leg_times), -200, 200, color='r', alpha=0.5)
+            ax3.vlines(np.cumsum(self.leg_times), -60, 60, color='r', alpha=0.5)
             ax3.set_xlabel('t, sec', fontsize=20)
             ax3.set_ylabel('deg/s', fontsize=20)
 
-            plt.savefig('figures/ref_traj_ns.eps', format='eps', bbox_inches='tight')
+            # plt.savefig('figures/ref_traj_ns.eps', format='eps', bbox_inches='tight')
 
             # plt.savefig('ref_traj3.png', dpi=500)
 
@@ -318,7 +318,8 @@ class RoverPlanner:
             'omega': f_ref_omega,
             'poly_x': ref_x,
             'poly_y': ref_y,
-            'way_points': np.array([self.px, self.py])
+            'way_points': np.array([self.px, self.py]),
+            't': np.arange(0, np.sum(self.leg_times), 0.05)
         }
 
 def simulate_rover(planner: RoverPlanner, freq_d, w1, w2, x0, y0, theta0, vr, dist, case, use_approx, dt, plot=False):
@@ -516,8 +517,8 @@ def plot_sim_corres(res, planner, name=None, legend=False, save=False):
     fig1 = plt.figure(1)
     title = 'X-Y Trajectory'
     # plt.plot(exp_log_err[0, :], exp_log_err[1, :], '-')    
-    plt.plot(x, y, 'b-.', label='Lie Group' if legend else None, linewidth=1.5, alpha=0.5)
-    plt.plot(exp_log_err[0, :], exp_log_err[1, :], 'r-', label='Lie Algebra' if legend else None, linewidth=0.5, alpha = 0.7)
+    plt.plot(x, y, 'b-.', label='Lie Group' if legend else None, linewidth=4, alpha=1)
+    plt.plot(exp_log_err[0, :], exp_log_err[1, :], 'r-', label='Lie Algebra' if legend else None, linewidth=1, alpha = 1)
     plt.plot(ref_x(t), ref_y(t), 'y-', alpha=1, linewidth=3, label='Reference' if legend else None)
     plt.xlabel('x, m')
     plt.ylabel('y, m')
