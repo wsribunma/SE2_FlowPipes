@@ -15,6 +15,7 @@ class PolyTraj:
     def __init__(self, poly_order, coeff, leg_times):
         assert len(leg_times) == len(coeff)/(poly_order + 1)
         self.poly_order = poly_order
+        self.coeff = coeff
         self.leg_times = leg_times
         self.poly_leg = [
             np.polynomial.Polynomial(coeff[j*(poly_order+1):(j+1)*(poly_order+1)])
