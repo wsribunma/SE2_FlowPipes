@@ -160,7 +160,7 @@ def find_se2_invariant_set(omega1, omega2, v1, v2, e, case, verbosity=0):
     else:
         raise RuntimeError('Optimization failed')
         
-    return sol, iterable, a1s, a2s, a3s, a4s, a5s, a6s
+    return sol, #iterable, a1s, a2s, a3s, a4s, a5s, a6s
 
 # Create Ellipsoid Invariant Set
 # invariany set for 6D

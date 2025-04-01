@@ -269,6 +269,10 @@ class RoverPlanner:
                     ref_x(t, 1)*ref_y(t, 1)*(2*ref_x(t, 2)**2 - 2*ref_y(t, 2)**2 + ref_y(t, 3)*ref_y(t, 1)) + 
                     ref_x(t, 1)**2*(-ref_x(t, 3)*ref_y(t, 1)-2*ref_x(t, 2)*ref_y(t, 2)))/f_ref_V(t)**4
 
+        t = np.arange(0, np.sum(self.leg_times), 0.1)
+        self.px = ref_x(t)
+        self.py = ref_y(t)
+
         if plot:
             t = np.arange(0, np.sum(self.leg_times), 0.1)
             plt.rcParams.update({'font.size': 20})
