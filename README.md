@@ -12,4 +12,5 @@ Updating environment.
 conda env update
 ```
 
-
+Note:
+Newer version may have issues with pytope during installation. Install "pycddlib" from source from: https://pycddlib.readthedocs.io/en/latest/quickstart.html#installation
